@@ -133,8 +133,6 @@ func checkEndpoints(c *kubernetes.Clientset, running *bool) {
 			for i:=0; i < len(addresses); i++ {
 				checkedAddr := <-ch
 
-				fmt.Println("Checked addr ", checkedAddr.ip, ", available ", checkedAddr.available)
-
 				if addresses[checkedAddr.ip] && !checkedAddr.available {
 					DisableAddress(eps, checkedAddr.ip)
 					changedState = true
