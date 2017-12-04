@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -85,7 +86,11 @@ func getConf() {
 	namespace = os.Getenv("CHECK_NAMESPACE")
 	endpoint = os.Getenv("CHECK_ENDPOINT")
 	port = os.Getenv("CHECK_PORT")
-	periodSeconds = int(os.Getenv("PERIOD_SECONDS"))
+	period, err := strconv.Atoi(os.Getenv("PERIOD_SECONDS"))
+	if err != nil {
+		panic(err.Error())
+	}
+	periodSeconds = period
 
 	fmt.Println("Configuration:")
 	fmt.Println("Namespace: ", namespace)
