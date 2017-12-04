@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: probeep
+  namespace: monitor
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: probeep
+subjects:
+- kind: ServiceAccount
+  name: probeep
+  namespace: monitor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: probeep
+  namespace: monitor
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: probeep
+  template:
+    metadata:
+      labels:
+        app: probeep
+    spec:
+      containers:
+      - name: probeep
+        image: harbor.beekast.info/infra/probeep:v0.1.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: CHECK_NAMESPACE
+          value: prd
+        - name: CHECK_ENDPOINT
+          value: rabbitmq
+        - name: CHECK_PORT
+          value: "15672"
+        - name: PERIOD_SECONDS
+          value: "10"
+        resources:
+          limits:
+            memory: "50Mi"
+            cpu: "20m"
+          requests:
+            memory: "20Mi"
+            cpu: "10m"
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 1
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 1
+      imagePullSecrets:
+      - name: registry
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 20
+      serviceAccountName: probeep
