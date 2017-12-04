@@ -12,7 +12,7 @@ Use Kubernetes as a load-balancer, probe static endpoints and move IPs to NotRea
 	kind: Endpoints
 	metadata:
 	  name: rabbitmq
-	  namespace: ${ENV}
+	  namespace: test
 	subsets:
 	- addresses:
 	  - ip: 10.11.3.7
@@ -30,7 +30,7 @@ Use Kubernetes as a load-balancer, probe static endpoints and move IPs to NotRea
 	kind: Service
 	metadata:
 	  name: rabbitmq
-	  namespace: ${ENV}
+	  namespace: test
 	spec:
 	  ports:
 		- name: console
@@ -39,11 +39,11 @@ Use Kubernetes as a load-balancer, probe static endpoints and move IPs to NotRea
 
 ### Deploy ProbeEP
 
-Configure ProbeEP with a set of environnment variables.
+Configure ProbeEP with a set of environment variables.
 
 	env:
 	- name: CHECK_NAMESPACE
-	  value: prd
+	  value: test
 	- name: CHECK_ENDPOINT
 	  value: rabbitmq
 	- name: CHECK_PORT
