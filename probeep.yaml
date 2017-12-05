@@ -45,6 +45,8 @@ spec:
           value: "15672"
         - name: PERIOD_SECONDS
           value: "10"
+        - name: TIMEOUT_SECONDS
+          value: "3"
         resources:
           limits:
             memory: "50Mi"

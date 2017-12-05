@@ -40,6 +40,7 @@ var (
 	endpoint string
 	port string
 	periodSeconds int
+	timeoutSeconds int
 )
 
 type ValidIP struct {
@@ -91,12 +92,13 @@ func getConf() {
 		panic(err.Error())
 	}
 	periodSeconds = period
+	timeout, err := strconv.Atoi(os.Getenv("TIMEOUT_SECONDS"))
+	if err != nil {
+		panic(err.Error())
+	}
+	timeoutSeconds = timeout
 
-	fmt.Println("Configuration:")
-	fmt.Println("Namespace: ", namespace)
-	fmt.Println("Endpoint: ", endpoint)
-	fmt.Println("Port: ", port)
-	fmt.Println("PeriodSeconds: ", periodSeconds)
+	fmt.Println("Configuration: -ns ", namespace, " -ep ", endpoint, " -port ", port, " -period ", period, " -timeout ", timeout)
 }
 
 // Serve http 80 for liveness/readyness probes
@@ -161,7 +163,7 @@ func checkEndpoints(c *kubernetes.Clientset, running *bool) {
 func checkIP(ch chan ValidIP, ip string) {
 	var one []byte
 
-	conn, err := net.DialTimeout("tcp", ip + ":" + port, 3 * time.Second)
+	conn, err := net.DialTimeout("tcp", ip + ":" + port, time.Duration(timeoutSeconds) * time.Second)
 	if err == nil {
 		conn.SetReadDeadline(time.Now())
 		if _, err := conn.Read(one); err == io.EOF {

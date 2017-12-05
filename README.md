@@ -50,6 +50,8 @@ Configure ProbeEP with a set of environment variables.
 	  value: "15672"
 	- name: PERIOD_SECONDS
 	  value: "10"
+	- name: TIMEOUT_SECONDS
+	  value: "3"
 
 Check out *probeep.yaml* as an example of deployment.
 
