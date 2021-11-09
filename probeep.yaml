@@ -92,7 +92,7 @@ kind: Endpoints
 metadata:
   name: consul-ep
   annotations:
-    lucca.net/probe-ep-hostnames: '["http://hostname.to.resolve.example.com:8500","http://hostname.to.resolve2.example.com:8500","http://hostname.to.resolve3.example.com:8500"]'
+    lucca.net/probe-ep-hostnames: '["hostname.to.resolve.example.com","hostname.to.resolve2.example.com","hostname.to.resolve3.example.com"]'
 subsets:
 - notReadyAddresses:
   - ip: 1.1.1.1
