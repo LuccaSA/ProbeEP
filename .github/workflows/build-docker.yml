@@ -13,7 +13,10 @@ jobs:
           registry: ${{ secrets.REGISTRY }}
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
-
+          
+  gitversion:
+    runs-on: ubuntu-latest
+    steps:
       - uses: actions/checkout@v2
 
       - name: Install GitVersion
@@ -25,5 +28,9 @@ jobs:
         id: gitversion
         uses: gittools/actions/gitversion/execute@v0.9.7
 
+  build-docker:
+    runs-on: ubuntu-latest
+    needs: [gitversion, login]
+    steps:
       - name: Build the Docker image
         run: docker build . --file Dockerfile --tag lucca/k8s/probeep:$GITVERSION_SEMVER
