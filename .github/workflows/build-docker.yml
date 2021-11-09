@@ -1,0 +1,20 @@
+name: build-docker
+
+on: [push, pull_request]
+
+jobs:
+  login:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Login to Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ secrets.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      -
+        uses: actions/checkout@v2
+        name: Build the Docker image
+        run: docker build . --file Dockerfile --tag lucca/k8s/probeep:$(date +%s)
