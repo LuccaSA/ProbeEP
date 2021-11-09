@@ -35,4 +35,4 @@ jobs:
     needs: [gitversion, login]
     steps:
       - name: Build the Docker image
-        run: docker build . --file Dockerfile --tag lucca/k8s/probeep:$GITVERSION_SEMVER
+        run: docker build . -t lucca/k8s/probeep:${{ gitversion.gitversion.outputs.fullSemVer }}
