@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -24,23 +26,25 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	v1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 var (
-	namespace string
-	endpoint string
-	port string
-	periodSeconds int
-	timeoutSeconds int
+	hostsAnnotation string
+	namespace       string
+	endpoint        string
+	port            int32
+	periodSeconds   int
+	timeoutSeconds  int
 )
 
 type ValidIP struct {
@@ -86,7 +90,12 @@ func main() {
 func getConf() {
 	namespace = os.Getenv("CHECK_NAMESPACE")
 	endpoint = os.Getenv("CHECK_ENDPOINT")
-	port = os.Getenv("CHECK_PORT")
+	hostsAnnotation = os.Getenv("ANNOTATION_NAME")
+	portTmp, err := strconv.Atoi(os.Getenv("CHECK_PORT"))
+	if err != nil {
+		panic(err.Error())
+	}
+	port = int32(portTmp)
 	period, err := strconv.Atoi(os.Getenv("PERIOD_SECONDS"))
 	if err != nil {
 		panic(err.Error())
@@ -113,6 +122,7 @@ func ready() {
 }
 
 func checkEndpoints(c *kubernetes.Clientset, running *bool) {
+	var hosts []string
 	var DefaultRetry = wait.Backoff{
 		Steps:    5,
 		Duration: 10 * time.Millisecond,
@@ -122,17 +132,29 @@ func checkEndpoints(c *kubernetes.Clientset, running *bool) {
 
 	for *running {
 		retryErr := RetryOnConflict(DefaultRetry, func() error {
+			changedState := false
 			ep := getEndpoints(c)
-			eps := &ep.Subsets[0]  // Getting first subset
+			err := json.Unmarshal([]byte(ep.Annotations[hostsAnnotation]), &hosts)
+			if err != nil {
+				fmt.Println("Invalid JSON annotation skipping")
+				return nil
+			}
 
+			if len(ep.Subsets) == 0 {
+				ep.Subsets = make([]v1.EndpointSubset, 1)
+				ep.Subsets[0] = v1.EndpointSubset{Addresses: make([]v1.EndpointAddress, 0), NotReadyAddresses: make([]v1.EndpointAddress, 0), Ports: make([]v1.EndpointPort, 1)}
+				ep.Subsets[0].Ports[0] = v1.EndpointPort{Port: port}
+			}
+			eps := &ep.Subsets[0]
+
+			changedState = CheckHostnamesConfiguration(eps, hosts)
 			addresses := GetAddresses(eps)
 			ch := make(chan ValidIP)
 			for ip := range addresses {
-				 go checkIP(ch, ip)
+				go checkIP(ch, ip)
 			}
 
-			changedState := false
-			for i:=0; i < len(addresses); i++ {
+			for i := 0; i < len(addresses); i++ {
 				checkedAddr := <-ch
 
 				if addresses[checkedAddr.ip] && !checkedAddr.available {
@@ -146,7 +168,7 @@ func checkEndpoints(c *kubernetes.Clientset, running *bool) {
 
 			if changedState {
 				fmt.Println("Changed state, updating endpoints.")
-				_, err := c.CoreV1().Endpoints(namespace).Update(ep)
+				_, err := c.CoreV1().Endpoints(namespace).Update(context.TODO(), ep, metav1.UpdateOptions{})
 				return err
 			}
 
@@ -163,23 +185,23 @@ func checkEndpoints(c *kubernetes.Clientset, running *bool) {
 func checkIP(ch chan ValidIP, ip string) {
 	var one []byte
 
-	conn, err := net.DialTimeout("tcp", ip + ":" + port, time.Duration(timeoutSeconds) * time.Second)
+	conn, err := net.DialTimeout("tcp", ip+":"+fmt.Sprint(port), time.Duration(timeoutSeconds)*time.Second)
 	if err == nil {
 		conn.SetReadDeadline(time.Now())
 		if _, err := conn.Read(one); err == io.EOF {
 			conn.Close()
-			ch <-ValidIP{available: false, ip: ip}
+			ch <- ValidIP{available: false, ip: ip}
 		} else {
 			conn.Close()
-			ch <-ValidIP{available: true, ip: ip}
+			ch <- ValidIP{available: true, ip: ip}
 		}
 	} else {
-		ch <-ValidIP{available: false, ip: ip}
+		ch <- ValidIP{available: false, ip: ip}
 	}
 }
 
 func getEndpoints(c *kubernetes.Clientset) *v1.Endpoints {
-	eps, err := c.CoreV1().Endpoints(namespace).Get(endpoint, metav1.GetOptions{})
+	eps, err := c.CoreV1().Endpoints(namespace).Get(context.TODO(), endpoint, metav1.GetOptions{})
 	if err != nil {
 		panic(err.Error())
 	}
@@ -200,7 +222,6 @@ func GetAddresses(ep *v1.EndpointSubset) map[string]bool {
 	for _, addr := range ep.NotReadyAddresses {
 		addresses[addr.IP] = false
 	}
-
 	return addresses
 }
 
@@ -234,6 +255,13 @@ func EnableAddress(ep *v1.EndpointSubset, address string) {
 	}
 
 	ep.NotReadyAddresses = NewNotReadyAddresses
+}
+
+func AddNewAddress(ep *v1.EndpointSubset, address string, host string) {
+	newAddr := v1.EndpointAddress{IP: address, Hostname: strings.Split(host, ".")[0]}
+
+	fmt.Println("Adding address ", address)
+	ep.NotReadyAddresses = append(ep.NotReadyAddresses, newAddr)
 }
 
 // Backported from branch master of client-go
