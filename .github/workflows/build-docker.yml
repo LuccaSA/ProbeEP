@@ -16,6 +16,8 @@ jobs:
           
   gitversion:
     runs-on: ubuntu-latest
+    outputs:
+      fullSemver: ${{ steps.gitversion.outputs.fullSemVer }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -32,7 +34,18 @@ jobs:
 
   build-docker:
     runs-on: ubuntu-latest
-    needs: [gitversion, login]
     steps:
       - name: Build the Docker image
-        run: docker build . -t lucca/k8s/probeep:${{ gitversion.gitversion.outputs.fullSemVer }}
+        run: docker build . -t probeep
+
+  publish-docker:
+    runs-on: ubuntu-latest
+    needs: [gitversion, login, build-docker]
+    env:
+      IMAGE_TAG: ${{ secrets.REGISTRY }}/lucca/k8s/probeep:${{ needs.gitversion.outputs.fullSemVer }}
+    steps:
+      - name: Tag
+        run: docker tag probeep $IMAGE_TAG
+      
+      - name: Publish
+        run: docker push $IMAGE_TAG
