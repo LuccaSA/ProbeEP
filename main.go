@@ -260,6 +260,23 @@ func AddNewAddress(ep *v1.EndpointSubset, address string, host string) {
 	ep.NotReadyAddresses = append(ep.NotReadyAddresses, newAddr)
 }
 
+func CheckDNSChange(ep *v1.EndpointSubset, ip string, hostname string) {
+	for idx, addr := range ep.Addresses {
+		if addr.Hostname == hostname && addr.IP != ip {
+			ep.Addresses[idx] = ep.Addresses[len(ep.Addresses)-1]
+			ep.Addresses = ep.Addresses[:len(ep.Addresses)-1]
+			break
+		}
+	}
+	for idx, addr := range ep.NotReadyAddresses {
+		if addr.Hostname == hostname && addr.IP != ip {
+			ep.NotReadyAddresses[idx] = ep.NotReadyAddresses[len(ep.NotReadyAddresses)-1]
+			ep.NotReadyAddresses = ep.NotReadyAddresses[:len(ep.NotReadyAddresses)-1]
+			break
+		}
+	}
+}
+
 func AddHostnameAdresses(ep *v1.EndpointSubset, hosts []string) {
 	for _, hostname := range hosts {
 		ip, err := net.LookupIP(hostname)
@@ -268,6 +285,7 @@ func AddHostnameAdresses(ep *v1.EndpointSubset, hosts []string) {
 			continue
 		}
 		ipString := ip[0].String()
+		CheckDNSChange(ep, ipString, hostname)
 		shouldAddHost := true
 		for _, addr := range ep.Addresses {
 			if addr.IP == ipString {
