@@ -14,7 +14,6 @@ jobs:
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
-      -
-        uses: actions/checkout@v2
-        name: Build the Docker image
+      - uses: actions/checkout@v2
+      - name: Build the Docker image
         run: docker build . --file Dockerfile --tag lucca/k8s/probeep:$(date +%s)
