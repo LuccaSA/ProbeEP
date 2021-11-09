@@ -15,5 +15,15 @@ jobs:
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - uses: actions/checkout@v2
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0.9.7
+        with:
+            versionSpec: '5.x'
+
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v0.9.7
+
       - name: Build the Docker image
-        run: docker build . --file Dockerfile --tag lucca/k8s/probeep:$(date +%s)
+        run: docker build . --file Dockerfile --tag lucca/k8s/probeep:$GITVERSION_SEMVER
