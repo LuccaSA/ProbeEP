@@ -6,7 +6,7 @@ jobs:
   gitversion:
     runs-on: ubuntu-latest
     outputs:
-      fullSemver: ${{ steps.gitversion.outputs.fullSemVer }}
+      SemVer: ${{ steps.gitversion.outputs.SemVer }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -44,4 +44,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.REGISTRY }}/lucca/k8s/probeep:${{ needs.gitversion.outputs.fullSemVer }}
+          tags: ${{ secrets.REGISTRY }}/lucca/k8s/probeep:${{ needs.gitversion.outputs.SemVer }}
