@@ -54,8 +54,3 @@ Configure ProbeEP with a set of environment variables.
 	  value: "3"
 
 Check out *probeep.yaml* as an example of deployment.
-
-
-## Limitations
-Hostnames are not used, only IP
-
