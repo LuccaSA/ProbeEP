@@ -39,19 +39,18 @@ import (
 )
 
 var (
-	namespace      string
-	endpoint       string
-	port           int32
-	periodSeconds  int
-	timeoutSeconds int
+	hostsAnnotation string
+	namespace       string
+	endpoint        string
+	port            int32
+	periodSeconds   int
+	timeoutSeconds  int
 )
 
 type ValidIP struct {
 	available bool
 	ip        string
 }
-
-const HostAnnotation = "lucca.net/probe-ep-hostnames"
 
 func main() {
 	running := true
@@ -91,6 +90,7 @@ func main() {
 func getConf() {
 	namespace = os.Getenv("CHECK_NAMESPACE")
 	endpoint = os.Getenv("CHECK_ENDPOINT")
+	hostsAnnotation = os.Getenv("ANNOTATION_NAME")
 	portTmp, err := strconv.Atoi(os.Getenv("CHECK_PORT"))
 	if err != nil {
 		panic(err.Error())
@@ -134,7 +134,7 @@ func checkEndpoints(c *kubernetes.Clientset, running *bool) {
 		retryErr := RetryOnConflict(DefaultRetry, func() error {
 			changedState := false
 			ep := getEndpoints(c)
-			err := json.Unmarshal([]byte(ep.Annotations[HostAnnotation]), &hosts)
+			err := json.Unmarshal([]byte(ep.Annotations[hostsAnnotation]), &hosts)
 			if err != nil {
 				fmt.Println("Invalid JSON annotation skipping")
 				return nil

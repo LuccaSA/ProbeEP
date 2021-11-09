@@ -60,6 +60,8 @@ spec:
           value: "10"
         - name: TIMEOUT_SECONDS
           value: "3"
+        - name: ANNOTATION_NAME
+          value: "lucca.net/probe-ep-hostnames"
         resources:
           limits:
             memory: "50Mi"
