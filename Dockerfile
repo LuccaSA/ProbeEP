@@ -3,7 +3,7 @@ WORKDIR /workdir
 RUN apk add --no-cache binutils
 COPY go.mod /workdir
 COPY go.sum /workdir
-COPY main.go /workdir
+COPY *.go /workdir/
 RUN go build -o probeep
 RUN strip probeep
 

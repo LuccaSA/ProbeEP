@@ -41,7 +41,7 @@ import (
 var (
 	namespace      string
 	endpoint       string
-	port           string
+	port           int32
 	periodSeconds  int
 	timeoutSeconds int
 )
@@ -51,7 +51,6 @@ type ValidIP struct {
 	ip        string
 }
 
-const defaultIP = "1.1.1.1" //Need a default IP because Endpoint can't be created if there is no Adresses / NotRdyAdresses
 const HostAnnotation = "lucca.net/probe-ep-hostnames"
 
 func main() {
@@ -92,7 +91,11 @@ func main() {
 func getConf() {
 	namespace = os.Getenv("CHECK_NAMESPACE")
 	endpoint = os.Getenv("CHECK_ENDPOINT")
-	port = os.Getenv("CHECK_PORT")
+	portTmp, err := strconv.Atoi(os.Getenv("CHECK_PORT"))
+	if err != nil {
+		panic(err.Error())
+	}
+	port = int32(portTmp)
 	period, err := strconv.Atoi(os.Getenv("PERIOD_SECONDS"))
 	if err != nil {
 		panic(err.Error())
@@ -129,21 +132,28 @@ func checkEndpoints(c *kubernetes.Clientset, running *bool) {
 
 	for *running {
 		retryErr := RetryOnConflict(DefaultRetry, func() error {
+			changedState := false
 			ep := getEndpoints(c)
 			err := json.Unmarshal([]byte(ep.Annotations[HostAnnotation]), &hosts)
 			if err != nil {
-				return err
+				fmt.Println("Invalid JSON annotation skipping")
+				return nil
+			}
+
+			if len(ep.Subsets) == 0 {
+				ep.Subsets = make([]v1.EndpointSubset, 1)
+				ep.Subsets[0] = v1.EndpointSubset{Addresses: make([]v1.EndpointAddress, 0), NotReadyAddresses: make([]v1.EndpointAddress, 0), Ports: make([]v1.EndpointPort, 1)}
+				ep.Subsets[0].Ports[0] = v1.EndpointPort{Port: port}
 			}
 			eps := &ep.Subsets[0]
 
-			AddHostnameAdresses(eps, hosts)
+			changedState = CheckHostnamesConfiguration(eps, hosts)
 			addresses := GetAddresses(eps)
 			ch := make(chan ValidIP)
 			for ip := range addresses {
 				go checkIP(ch, ip)
 			}
 
-			changedState := false
 			for i := 0; i < len(addresses); i++ {
 				checkedAddr := <-ch
 
@@ -175,7 +185,7 @@ func checkEndpoints(c *kubernetes.Clientset, running *bool) {
 func checkIP(ch chan ValidIP, ip string) {
 	var one []byte
 
-	conn, err := net.DialTimeout("tcp", ip+":"+port, time.Duration(timeoutSeconds)*time.Second)
+	conn, err := net.DialTimeout("tcp", ip+":"+fmt.Sprint(port), time.Duration(timeoutSeconds)*time.Second)
 	if err == nil {
 		conn.SetReadDeadline(time.Now())
 		if _, err := conn.Read(one); err == io.EOF {
@@ -207,15 +217,9 @@ func GetAddresses(ep *v1.EndpointSubset) map[string]bool {
 	addresses := make(map[string]bool)
 
 	for _, addr := range ep.Addresses {
-		if addr.IP == defaultIP {
-			continue
-		}
 		addresses[addr.IP] = true
 	}
 	for _, addr := range ep.NotReadyAddresses {
-		if addr.IP == defaultIP {
-			continue
-		}
 		addresses[addr.IP] = false
 	}
 	return addresses
@@ -258,51 +262,6 @@ func AddNewAddress(ep *v1.EndpointSubset, address string, host string) {
 
 	fmt.Println("Adding address ", address)
 	ep.NotReadyAddresses = append(ep.NotReadyAddresses, newAddr)
-}
-
-func CheckDNSChange(ep *v1.EndpointSubset, ip string, hostname string) {
-	for idx, addr := range ep.Addresses {
-		if addr.Hostname == hostname && addr.IP != ip {
-			ep.Addresses[idx] = ep.Addresses[len(ep.Addresses)-1]
-			ep.Addresses = ep.Addresses[:len(ep.Addresses)-1]
-			break
-		}
-	}
-	for idx, addr := range ep.NotReadyAddresses {
-		if addr.Hostname == hostname && addr.IP != ip {
-			ep.NotReadyAddresses[idx] = ep.NotReadyAddresses[len(ep.NotReadyAddresses)-1]
-			ep.NotReadyAddresses = ep.NotReadyAddresses[:len(ep.NotReadyAddresses)-1]
-			break
-		}
-	}
-}
-
-func AddHostnameAdresses(ep *v1.EndpointSubset, hosts []string) {
-	for _, hostname := range hosts {
-		ip, err := net.LookupIP(hostname)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		ipString := ip[0].String()
-		CheckDNSChange(ep, ipString, hostname)
-		shouldAddHost := true
-		for _, addr := range ep.Addresses {
-			if addr.IP == ipString {
-				shouldAddHost = false
-				break
-			}
-		}
-		for _, addr := range ep.NotReadyAddresses {
-			if addr.IP == ipString {
-				shouldAddHost = false
-				break
-			}
-		}
-		if shouldAddHost {
-			AddNewAddress(ep, ipString, hostname)
-		}
-	}
 }
 
 // Backported from branch master of client-go

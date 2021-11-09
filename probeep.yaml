@@ -53,7 +53,7 @@ spec:
         - name: CHECK_NAMESPACE
           value: default
         - name: CHECK_ENDPOINT
-          value: consul-ep
+          value: consul
         - name: CHECK_PORT
           value: "8500"
         - name: PERIOD_SECONDS
@@ -90,15 +90,10 @@ spec:
 apiVersion: v1
 kind: Endpoints
 metadata:
-  name: consul-ep
+  name: consul
   annotations:
     lucca.net/probe-ep-hostnames: '["hostname.to.resolve.example.com","hostname.to.resolve2.example.com","hostname.to.resolve3.example.com"]'
-subsets:
-- notReadyAddresses:
-  - ip: 1.1.1.1
-  ports:
-  - name: http
-    port: 8500
+subsets: []
 ---
 apiVersion: v1
 kind: Service
