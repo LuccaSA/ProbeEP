@@ -23,7 +23,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -131,8 +130,11 @@ func checkEndpoints(c *kubernetes.Clientset, running *bool) {
 	for *running {
 		retryErr := RetryOnConflict(DefaultRetry, func() error {
 			ep := getEndpoints(c)
-			json.Unmarshal([]byte(ep.Annotations[HostAnnotation]), &hosts)
-			eps := &ep.Subsets[0] // Getting first subset
+			err := json.Unmarshal([]byte(ep.Annotations[HostAnnotation]), &hosts)
+			if err != nil {
+				return err
+			}
+			eps := &ep.Subsets[0]
 
 			AddHostnameAdresses(eps, hosts)
 			addresses := GetAddresses(eps)
@@ -259,18 +261,8 @@ func AddNewAddress(ep *v1.EndpointSubset, address string, host string) {
 }
 
 func AddHostnameAdresses(ep *v1.EndpointSubset, hosts []string) {
-	for _, hostString := range hosts {
-		u, err := url.Parse(hostString)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		host, _, err := net.SplitHostPort(u.Host)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		ip, err := net.LookupIP(host)
+	for _, hostname := range hosts {
+		ip, err := net.LookupIP(hostname)
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -290,7 +282,7 @@ func AddHostnameAdresses(ep *v1.EndpointSubset, hosts []string) {
 			}
 		}
 		if shouldAddHost {
-			AddNewAddress(ep, ipString, host)
+			AddNewAddress(ep, ipString, hostname)
 		}
 	}
 }
