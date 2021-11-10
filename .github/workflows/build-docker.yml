@@ -1,0 +1,47 @@
+name: build-docker
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+
+      -
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: ${{ secrets.REGISTRY }}/lucca/k8s/probeep
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          flavor: |
+            latest=auto
+            prefix=,onlatest=false
+            suffix=,onlatest=false
+
+      -
+        name: Login to Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ secrets.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      -
+        name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
