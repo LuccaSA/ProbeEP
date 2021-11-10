@@ -21,6 +21,22 @@ jobs:
         id: gitversion
         uses: gittools/actions/gitversion/execute@v0.9.7
 
+      -
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: lucca/k8s/probeep
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          flavor: |
+            latest=auto
+            prefix=,onlatest=false
+            suffix=,onlatest=false
+
   build-docker:
     runs-on: ubuntu-latest
     needs: [gitversion]
@@ -44,4 +60,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.REGISTRY }}/lucca/k8s/probeep:${{ needs.gitversion.outputs.SemVer }}
+          tags: ${{ steps.meta.outputs.tags }}
