@@ -143,7 +143,7 @@ func checkEndpoints(c *kubernetes.Clientset, running *bool) {
 			if len(ep.Subsets) == 0 {
 				ep.Subsets = make([]v1.EndpointSubset, 1)
 				ep.Subsets[0] = v1.EndpointSubset{Addresses: make([]v1.EndpointAddress, 0), NotReadyAddresses: make([]v1.EndpointAddress, 0), Ports: make([]v1.EndpointPort, 1)}
-				ep.Subsets[0].Ports[0] = v1.EndpointPort{Port: port}
+				ep.Subsets[0].Ports[0] = v1.EndpointPort{Port: port, Name: endpoint}
 			}
 			eps := &ep.Subsets[0]
 
