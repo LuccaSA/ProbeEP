@@ -1,33 +1,23 @@
 name: build-docker
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:          
   gitversion:
     runs-on: ubuntu-latest
     outputs:
-      SemVer: ${{ steps.gitversion.outputs.SemVer }}
       tags: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
 
-      - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v0.9.7
-        with:
-            versionSpec: '5.x'
-
-      - name: Determine Version
-        id: gitversion
-        uses: gittools/actions/gitversion/execute@v0.9.7
-
       -
         name: Docker meta
         id: meta
         uses: docker/metadata-action@v3
         with:
-          images: lucca/k8s/probeep
+          images: ${{ secrets.REGISTRY }}/lucca/k8s/probeep
           tags: |
             type=ref,event=branch
             type=ref,event=pr
